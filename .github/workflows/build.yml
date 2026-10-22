@@ -1,37 +1,50 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
+workflow_dispatch:
+push:
+branches:
+- main
 
 permissions:
-  contents: read
+contents: read
 
 jobs:
-  build:
-    name: Build APK
-    runs-on: ubuntu-latest
+build:
+name: Build APK
+runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+  - name: Set up Java
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: '17'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+  - name: Extract Android project
+    run: |
+      unzip -q AIStockSignalAndroid-source.zip -d android-source
+      find android-source -name settings.gradle -print
 
-      - name: Build debug APK
-        run: gradle assembleDebug
+  - name: Set up Gradle
+    uses: gradle/actions/setup-gradle@v4
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: AIStockSignal-APK
-          path: app/build/outputs/apk/debug/*.apk
+  - name: Build debug APK
+    run: |
+      PROJECT_DIR=$(dirname "$(find "$GITHUB_WORKSPACE/android-source" -name settings.gradle -print -quit)")
+      if [ -z "$PROJECT_DIR" ] || [ ! -f "$PROJECT_DIR/app/build.gradle" ]; then
+        echo "Android project or app/build.gradle not found in ZIP."
+        exit 1
+      fi
+      cd "$PROJECT_DIR"
+      gradle assembleDebug
+
+  - name: Upload APK
+    uses: actions/upload-artifact@v4
+    with:
+      name: AIStockSignal-APK
+      path: android-source/**/app/build/outputs/apk/debug/*.apk
+      if-no-files-found: error
